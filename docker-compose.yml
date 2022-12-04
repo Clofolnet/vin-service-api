@@ -1,0 +1,28 @@
+version: '3.3'
+
+services:
+
+  db:
+    image: postgres:15.1
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - ./.env.db
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c "python manage.py migrate && python3 manage.py runserver 0.0.0.0:8000"
+    container_name: vin_service
+    env_file:
+      - ./.env
+    volumes:
+      - .:/vin_service
+    ports:
+      - "8001:8000"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
