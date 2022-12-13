@@ -13,6 +13,7 @@ class TimeTracking(models.Model):
     class Meta:
         abstract = True
 
+
 class Weight(models.Model):
     """ Machine weight model """
     type = models.CharField("Type", max_length=20)
@@ -32,6 +33,7 @@ class Weight(models.Model):
             unit=data['unit'],
             value=data['value']
         )
+
 
 class Car(models.Model):
     """ Machine model derived from the VIN data """
@@ -64,4 +66,8 @@ class Car(models.Model):
             dimension=data.get('vehicle')[0].get('dimensions'),
         )
 
-    
+    def uniqueness_check_by_vin_code(vin_code):
+        return Car.objects.filter(vin=vin_code).exists()
+
+    def get_car_by_vin_code(vin_code):
+        return Car.objects.get(vin=vin_code)

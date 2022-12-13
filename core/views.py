@@ -7,28 +7,62 @@ from rest_framework.views import APIView
 
 from .models import Car, Weight
 from .serializers import CarSerializer, WeightSerializer
-from .services import get_decode_vim_code
+from .services import get_decode_vin_code
 
 
 @api_view(['GET'])
-def vim_decode(request, vim_code):
-	decode_data = get_decode_vim_code(vim_code)
-	if not decode_data:
-		return Response({'success': False, 'message': "Wrong request to VIM decoder"})
-	try:
-		with transaction.atomic():
-			weight = Weight.create(decode_data.get('decode').get('vehicle')[0].get('weight'))
-			car = Car.create(decode_data.get('decode'), weight)
+def vin_decode(request, vin_code):
+    if Car.uniqueness_check_by_vin_code(vin_code):
+        car = Car.get_car_by_vin_code(vin_code)
+        data = CarSerializer(car).data
+        return Response({'success': True, 'message': "The record has already been created, the data from the database has been returned", 'decode_data': data})
 
-		data = CarSerializer(car).data
-		return Response({'success': True, 'message': "Decoding successfully", 'decode_data':data})
-	except:
-		return Response({'success': False, 'message': "Failed to save data in the database"})
+    decode_data = get_decode_vin_code(vin_code)
+    if not decode_data:
+        return Response({'success': False, 'message': "Wrong request to VIM decoder"})
+    try:
+        with transaction.atomic():
+            weight = Weight.create(decode_data.get(
+                'decode').get('vehicle')[0].get('weight'))
+            car = Car.create(decode_data.get('decode'), weight)
+
+        data = CarSerializer(car).data
+        return Response({'success': True, 'message': "Decoding successfully", 'decode_data': data})
+    except:
+        return Response({'success': False, 'message': "Failed to save data in the database"})
+
+
+class DecodeVINView(APIView):
+    """  
+            Decode VIN code
+    """
+
+    def get(self, request, vin_code):
+        if Car.uniqueness_check_by_vin_code(vin_code):
+            car = Car.get_car_by_vin_code(vin_code)
+            data = CarSerializer(car).data
+            return Response(data=data, status=status.HTTP_200_OK)
+
+        decode_data = get_decode_vin_code(vin_code)
+        if not decode_data:
+            return Response({'success': False, 'message': "Wrong request to VIM decoder"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            with transaction.atomic():
+                weight = Weight.create(decode_data.get(
+                    'decode').get('vehicle')[0].get('weight'))
+                car = Car.create(decode_data.get('decode'), weight)
+
+            data = CarSerializer(car).data
+            return Response({'success': True, 'message': "Decoding successfully", 'decode_data': data}, status=status.HTTP_201_CREATED)
+        except:
+            return Response({'success': False, 'message': "Failed to save data in the database"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CarListView(APIView):
     """
-    	List all cars, create a new car
+            List all cars, create a new car
     """
+
     def get(self, request, format=None):
         cars = Car.objects.all()
         serializer = CarSerializer(cars, many=True)
@@ -39,8 +73,8 @@ class CarListView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        print(serializer.error_messages, serializer._errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CarDetailView(APIView):
     """ CRUD for Car objects """
@@ -69,10 +103,12 @@ class CarDetailView(APIView):
         car.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class WeightListView(APIView):
     """
-    	List all weight, create a new weight entry
+            List all weight, create a new weight entry
     """
+
     def get(self, request, format=None):
         weights = Weight.objects.all()
         serializer = WeightSerializer(weights, many=True)
@@ -84,6 +120,7 @@ class WeightListView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class WeightDetailView(APIView):
     """ CRUD for Weight object """

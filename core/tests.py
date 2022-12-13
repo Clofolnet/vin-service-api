@@ -313,13 +313,13 @@ class CreateNewCarTest(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    """ def test_create_invalid_car(self):
+    def test_create_invalid_car(self):
         response = client.post(
             reverse('cars'),
             data=json.dumps(self.invalid_payload),
             content_type='application/json'
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST) """
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class UpdateSingleCarTest(TestCase):
@@ -440,3 +440,27 @@ class DeleteSingleCarTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
 # --- Cars Test End
+
+# --- Decode VIN Test Start
+
+class DecodeVINCodeTest(TestCase):
+
+    def setUp(self):
+        self.valid_vin_code = '1P3EW65F4VV300946'
+        self.invalid_vin_code = 'CHTO1P3EW65F4VV3009'
+
+    def test_valid_decode_vin_code(self):
+        response = client.get(
+            reverse('vin-decode-class-based-style',
+                    kwargs={'vin_code': self.valid_vin_code})
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_indalid_dedode_vin_code(self):
+        response = client.get(
+            reverse('vin-decode-class-based-style',
+                    kwargs={'vin_code': self.invalid_vin_code})
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+# --- Decode VIN Test End
