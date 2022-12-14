@@ -1,4 +1,3 @@
-from django.db import transaction
 from django.http import Http404
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -7,29 +6,43 @@ from rest_framework.views import APIView
 
 from .models import Car, Weight
 from .serializers import CarSerializer, WeightSerializer
-from .services import get_decode_vin_code
+from .services import get_decode_vin_code, save_decoding_data
 
 
 @api_view(['GET'])
 def vin_decode(request, vin_code):
-    if Car.uniqueness_check_by_vin_code(vin_code):
-        car = Car.get_car_by_vin_code(vin_code)
-        data = CarSerializer(car).data
-        return Response({'success': True, 'message': "The record has already been created, the data from the database has been returned", 'decode_data': data})
-
-    decode_data = get_decode_vin_code(vin_code)
-    if not decode_data:
-        return Response({'success': False, 'message': "Wrong request to VIM decoder"})
     try:
-        with transaction.atomic():
-            weight = Weight.create(decode_data.get(
-                'decode').get('vehicle')[0].get('weight'))
-            car = Car.create(decode_data.get('decode'), weight)
+        response_data = {}
+        request_status = None
+        if Car.uniqueness_check_by_vin_code(vin_code):
+            car = Car.get_car_by_vin_code(vin_code)
+            request_status = status.HTTP_200_OK
+            response_data.update(
+                {'success': True, 'message': "The record has already been created, the data from the database has been returned"})
+        else:
+            decode_data = get_decode_vin_code(vin_code)
+            if decode_data:
+                car = save_decoding_data(decode_data)
+                request_status = status.HTTP_201_CREATED
+                response_data.update(
+                    {'success': True, 'message': "Decoding successfully"})
+            else:
+                car = None
+                request_status = status.HTTP_400_BAD_REQUEST
+                response_data.update(
+                    {'success': False, 'message': "Wrong request to VIM decoder"})
 
-        data = CarSerializer(car).data
-        return Response({'success': True, 'message': "Decoding successfully", 'decode_data': data})
-    except:
-        return Response({'success': False, 'message': "Failed to save data in the database"})
+        if car != None:
+            data = CarSerializer(car).data
+            response_data.update({'data': data})
+
+    except Exception as e:
+        response_data = {'success': False, 'message': str(Exception)}
+
+    finally:
+        if request_status is None:
+            request_status = status.HTTP_400_BAD_REQUEST
+        return Response(response_data, status=request_status)
 
 
 class DecodeVINView(APIView):
@@ -38,24 +51,38 @@ class DecodeVINView(APIView):
     """
 
     def get(self, request, vin_code):
-        if Car.uniqueness_check_by_vin_code(vin_code):
-            car = Car.get_car_by_vin_code(vin_code)
-            data = CarSerializer(car).data
-            return Response(data=data, status=status.HTTP_200_OK)
-
-        decode_data = get_decode_vin_code(vin_code)
-        if not decode_data:
-            return Response({'success': False, 'message': "Wrong request to VIM decoder"}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            with transaction.atomic():
-                weight = Weight.create(decode_data.get(
-                    'decode').get('vehicle')[0].get('weight'))
-                car = Car.create(decode_data.get('decode'), weight)
+            response_data = {}
+            request_status = None
+            if Car.uniqueness_check_by_vin_code(vin_code):
+                car = Car.get_car_by_vin_code(vin_code)
+                request_status = status.HTTP_200_OK
+                response_data.update(
+                    {'success': True, 'message': "The record has already been created, the data from the database has been returned"})
+            else:
+                decode_data = get_decode_vin_code(vin_code)
+                if decode_data:
+                    car = save_decoding_data(decode_data)
+                    request_status = status.HTTP_201_CREATED
+                    response_data.update(
+                        {'success': True, 'message': "Decoding successfully"})
+                else:
+                    car = None
+                    request_status = status.HTTP_400_BAD_REQUEST
+                    response_data.update(
+                        {'success': False, 'message': "Wrong request to VIM decoder"})
 
-            data = CarSerializer(car).data
-            return Response({'success': True, 'message': "Decoding successfully", 'decode_data': data}, status=status.HTTP_201_CREATED)
-        except:
-            return Response({'success': False, 'message': "Failed to save data in the database"}, status=status.HTTP_400_BAD_REQUEST)
+            if car != None:
+                data = CarSerializer(car).data
+                response_data.update({'data': data})
+
+        except Exception as e:
+            response_data = {'success': False, 'message': str(e)}
+
+        finally:
+            if request_status is None:
+                request_status = status.HTTP_400_BAD_REQUEST
+            return Response(response_data, status=request_status)
 
 
 class CarListView(APIView):
